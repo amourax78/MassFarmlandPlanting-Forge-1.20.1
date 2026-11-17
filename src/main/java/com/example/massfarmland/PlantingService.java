@@ -24,14 +24,16 @@ import java.util.Set;
 
 /** All constants and the flood-fill/placement logic live here. */
 public final class PlantingService {
-    public static final int RADIUS = 8;
-    public static final int MAX_PLANTS = 64;
-    private static final int RADIUS_SQUARED = RADIUS * RADIUS;
+    public static final int AREA = 8;
+    public static final int MAX_PLANTS = AREA * AREA;
+    public static final int MAX_OFFSET = 8;
+    public static final int MIN_OFFSET = -7;
     private static final Direction[] HORIZONTAL = {
             Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST
     };
 
-    private PlantingService() {}
+    private PlantingService() {
+    }
 
     /**
      * A four-way flood fill, limited to farmland at the exact same Y and inside
@@ -60,7 +62,8 @@ public final class PlantingService {
                 BlockPos next = current.relative(direction);
                 int dx = next.getX() - origin.getX();
                 int dz = next.getZ() - origin.getZ();
-                if (dx * dx + dz * dz > RADIUS_SQUARED) {
+                if (dx < MIN_OFFSET || dx > MAX_OFFSET
+                        || dz < MIN_OFFSET || dz > MAX_OFFSET) {
                     continue;
                 }
                 if (visited.add(next) && level.isLoaded(next)
@@ -105,8 +108,8 @@ public final class PlantingService {
      * the player's selected slot or changing which hand they appear to hold.
      */
     public static int plantRegion(ServerPlayer player, InteractionHand hand,
-                                  List<BlockPos> connected, ItemStack identity,
-                                  IPlantable plant) {
+            List<BlockPos> connected, ItemStack identity,
+            IPlantable plant) {
         Level level = player.level();
         int planted = 0;
         boolean attempted = false;
@@ -150,7 +153,7 @@ public final class PlantingService {
 
     /** First the triggering hand, then matching stacks in the player's 36 slots. */
     private static ItemStack findMatchingStack(ServerPlayer player, InteractionHand hand,
-                                                ItemStack identity) {
+            ItemStack identity) {
         ItemStack held = player.getItemInHand(hand);
         if (matches(identity, held)) {
             return held;

@@ -6,7 +6,7 @@ A mod that lets you plant multiple crops at once by **holding Shift and right-cl
 
 - Activate the mod by **holding Shift** and **right-clicking a farmland block** with a compatible seed or crop item. You can click any face of the farmland block.
 - Only farmland blocks on the **same Y-level** as the clicked block and connected in the **four cardinal directions (North / East / South / West)** are scanned. Diagonal connections do not count.
-- The search area is limited to a **circular radius of 8 blocks** (the squared X-distance plus the squared Z-distance must not exceed 64).
+- The search area is limited to a **8x8 blocks area**.
 - Planting order is based on **Euclidean distance from the clicked position**, nearest first. Ties are resolved by X and then Z coordinates to ensure a consistent order.
 - A maximum of **64 crops per activation** can be planted. Blocks that already contain a crop or have another obstruction are skipped.
 - The mod first uses the item stack **in the hand used to click**. When that stack runs out, it searches the **36 inventory slots** (hotbar and main inventory) for stacks with the **same item and NBT data**. It never switches to a different item type automatically. In Creative Mode, up to 64 blocks can still be planted per activation.
