@@ -1,76 +1,90 @@
-# Mass Farmland Planting — Forge 1.20.1
+# Mass Farmland Planting + Mass Hoeing (Forge 1.20.1)
 
-A mod that lets you plant multiple crops at once by **holding Shift and right-clicking farmland**. Designed for **Minecraft Java Edition 1.20.1 / Minecraft Forge 47.x / Java 17**.
+**Minecraft Java 1.20.1** | **Forge 47.x** | **Java JDK 17** | **Mod version 1.1.0**
 
-## Key Features and Rules
+This source project implements two independent **Shift + right-click** actions:
 
-- Activate the mod by **holding Shift** and **right-clicking a farmland block** with a compatible seed or crop item. You can click any face of the farmland block.
-- Only farmland blocks on the **same Y-level** as the clicked block and connected in the **four cardinal directions (North / East / South / West)** are scanned. Diagonal connections do not count.
-- The search area is limited to a **8x8 blocks area**.
-- Planting order is based on **Euclidean distance from the clicked position**, nearest first. Ties are resolved by X and then Z coordinates to ensure a consistent order.
-- A maximum of **64 crops per activation** can be planted. Blocks that already contain a crop or have another obstruction are skipped.
-- The mod first uses the item stack **in the hand used to click**. When that stack runs out, it searches the **36 inventory slots** (hotbar and main inventory) for stacks with the **same item and NBT data**. It never switches to a different item type automatically. In Creative Mode, up to 64 blocks can still be planted per activation.
-- No additional items, blocks, or textures are required. Existing crops are never destroyed.
-- Planting is handled on the **server**. The client only prevents the default single-crop placement action to avoid duplicate planting or ghost crops.
+| Feature | Item held | Click on | Area | Behavior |
+| --- | --- | --- | --- | --- |
+| Mass planting | Compatible seeds/crop block item | Farmland | 8 x 8 | Plant up to 64 crops on connected farmland |
+| Mass hoeing | Vanilla or vanilla-derived `HoeItem` | Dirt, grass block, dirt path, coarse dirt, or rooted dirt | 8 x 8 | Process all eligible soil cells, even disconnected patches; clear plants when needed |
 
-### Supported Crops
+## How the 8 x 8 area is positioned
 
-Vanilla crops are supported, including wheat seeds, beetroot seeds, carrots, potatoes, melon seeds, pumpkin seeds, torchflower seeds, and pitcher pods, **provided they can actually be planted on farmland and there is enough room**.
+Both features use the clicked block as the anchor. X/Z offsets are **-3 through +4** from that block. Only blocks at the **same Y level** are considered. The square contains 64 positions; neither operation affects the terrain beyond its 8 x 8 region. Even-sized squares cannot be perfectly centered on one block.
 
-The mod can also automatically recognize many seeds from other mods **when the item is a `BlockItem`, its block implements Forge's `IPlantable` interface, and the farmland supports that plant type**. These items are placed through `ItemStack.useOn(UseOnContext)` rather than `level.setBlock`, so normal placement behavior, item consumption, and Forge block-place events are preserved.
+## Mass planting (retained from the original feature, changed to 8 x 8)
 
-**Compatibility limitations:** Some mods use regular items (not `BlockItem`), custom placement APIs, or check the item held directly instead of using `UseOnContext`. Such mods may not be compatible. This mod does not guarantee compatibility with every farming or crop mod. If you use a land-protection mod that relies on its own events rather than Forge's block-place event, test the interaction on an actual server.
+1. Hold seeds or a supported crop item; **Shift + right-click farmland**.
+2. A 4-direction flood fill finds *connected farmland* in the 8 x 8 square. Farmland with existing crops still acts as a connection, but is not replanted.
+3. The closest empty, viable connected cells are planted first, up to **64 successful placements**.
+4. Uses items from the clicked hand and then matching item + NBT stacks elsewhere in the normal 36-slot inventory.
+5. Uses the real `ItemStack.useOn(UseOnContext)` path. It leaves existing plants and unrelated blocks untouched.
+
+The supported seed items follow the prior rules: the item must be a `BlockItem`, its block must implement Forge `IPlantable`, and the farmland must support it. Some modded crops use different placement APIs and cannot be guaranteed.
+
+## Mass hoeing (NEW)
+
+1. Hold a **hoe** (an instance of `HoeItem`, including typical vanilla or subclassed hoes); **Shift + right-click one of the eligible soil blocks**.
+2. The mod examines **all 64 positions** in the 8 x 8 square at the clicked block's Y level, nearest first. **Disconnected patches are included.**
+3. Eligible soil: **grass block, dirt, dirt path, coarse dirt, and rooted dirt**. Already-tilled farmland, stone, sand, and other blocks are skipped.
+4. If a supported plant is directly above an eligible soil cell, the mod breaks the plant **using the server's normal player block-break operation** before attempting to hoe. This produces normal survival drops, honors block-break events and protected areas, and lets Minecraft update the other half of double-height plants. This may also break dependent vertical plant segments as in vanilla.
+5. Recognized plants include normal grass, flowers, ferns, tall grass/double flowers, saplings, mushrooms, crops (if one occurs above eligible soil), bamboo, sugar cane, big dripleaves, and other `BushBlock`-based plants. Plant or crop blocks above **existing farmland are not harvested**, since farmland isn't a hoeable soil block.
+6. It **never intentionally breaks logs, leaves, chests, stone, water, snow, unknown blocks, or block entities** to clear an obstructed soil cell. It skips soil with those obstructions.
+7. Once there is air above the soil, the mod calls the hoe's normal `ItemStack.useOn` behavior. Forge's `HOE_TILL` preview is checked to skip ineffective actions. The result exactly follows vanilla: **grass, dirt, and dirt path -> farmland**; **coarse dirt and rooted dirt -> dirt first**, requiring a second activation if you want farmland. Rooted dirt's hanging-roots item uses vanilla behavior.
+8. There is **no artificial durability damage** in the mass-hoeing loop. The normal hoe use is responsible for per-operation damage, Unbreaking, and Creative mode. Breaking a plant with the hoe can additionally cause normal mining-tool wear where vanilla does so. The batch stops when the tool breaks or changes.
+9. Only the server modifies the world. The triggering click is intercepted on both client and server to avoid one-block duplicate actions.
+
+### Important bounds and safety
+
+- Plant clearing only occurs above a *vanilla hoeable* soil block inside the square. There is no indiscriminate area clearing.
+- Normal drops are subject to game mode and loot tables (e.g. Creative normally does not generate survival drops).
+- Player/item interaction permissions are checked; plant breaking uses `ServerPlayerGameMode.destroyBlock`, which runs the regular server-side Forge block-break hooks. **Protection mods with custom/nonstandard hooks still need live testing.**
+- Mods with unusual custom plant block classes might not be recognized automatically. Unknown or solid blocks are preserved.
+- You must click the **soil block**, not the plant, to activate the feature; targeting a tall plant may require clicking the side of its soil.
 
 ## Building on Windows
 
-**Requirements:** JDK 17 (not a Java Runtime-only installation), an Internet connection for the first build, and PowerShell, which is included with Windows.
+You need a **JDK 17** (not just a Java runtime) and an internet connection for the first build.
 
-1. Extract the ZIP archive and open CMD or PowerShell in the project directory.
-2. Run:
+1. Extract the ZIP and open PowerShell or Command Prompt in the project folder.
+2. Run `build.bat` (or `./build.bat` in PowerShell).
+3. The script obtains the official Forge 1.20.1-47.4.28 MDK Gradle wrapper, verifies its checksum, and runs the Gradle build.
+4. The resulting installable mod, **if compilation succeeds**, is at:
 
-   ```bat
-   .\build.bat
-   ```
+   `build/libs/massfarmland-1.0.0.jar`
 
-3. The script downloads the **official Gradle wrapper from the Forge 1.20.1-47.4.28 MDK**, **verifies its SHA-1 checksum** against the Forge website, and then runs `gradlew.bat build`.
-4. The built mod JAR will be located at: `build/libs/massfarmland-1.0.0.jar`.
+***sorry i just too lazy to modify the .jar into 1.1.0, u just can easily download it in version_log/ ***
 
-For subsequent builds, you can run `gradlew.bat build` directly once the wrapper has been initialized.
+On Linux: `bash build.sh` (requires `curl`, `unzip`, `sha1sum`, JDK 17). On macOS `sha1sum` may require coreutils. After Gradle bootstrapping, `gradlew.bat runClient` starts a development client.
 
-To launch the development client, run `gradlew.bat runClient` after the Gradle wrapper is available.
+## Installing
 
-**Building on Linux/macOS:** Run `bash build.sh`. This requires `curl`, `unzip`, `sha1sum`, and JDK. On macOS, you may need to install coreutils to obtain `sha1sum`.
+Install Minecraft Forge **1.20.1 / Forge 47.x**, then place the built JAR in your Minecraft `mods` folder. Install the same JAR on both client and dedicated server for multiplayer.
 
-If you do not want to use the bootstrap script, download the **Forge 1.20.1-47.4.28 MDK** from Forge and copy these four wrapper files from it: `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, and `gradle/wrapper/gradle-wrapper.properties`. Do not overwrite `build.gradle`, the source code, or `mods.toml` with files from the MDK.
+## Recommended manual in-game tests
 
-## Installation
+1. Plant 64 empty connected farmland cells in an 8 x 8 square with 64 seeds; no more than 64 are planted.
+2. Check planting skips already occupied cells, doesn't cross a dirt gap, and doesn't extend past the 8 x 8 boundary.
+3. Mass-hoe an 8 x 8 mix of grass, dirt, and dirt path, separated by stone; all eligible cells transform, stone does not.
+4. Mass-hoe coarse dirt and rooted dirt: both become **ordinary dirt first**; repeat to get farmland.
+5. Put saplings, regular grass, flowers, and a two-block tall flower on eligible dirt. Confirm drops and both halves of tall plant vanish.
+6. Put stone, water, snow, chests or leaves immediately above other eligible dirt. These cells should remain unchanged; no protected or solid block should be broken.
+7. Check a hoe with one durability left stops after breaking, rather than continuing as an empty stack.
+8. Check both main-hand/off-hand usage, Survival, Creative, and multiplayer.
+9. Test protected areas, custom crop mods, and Unbreaking: confirm normal protection and enchantment behavior.
+10. Confirm Shift + right-click with seeds affects planting only; Shift + right-click with a hoe affects tilling only.
 
-1. Install **Minecraft Java Edition 1.20.1** with **Forge 47.x**.
-2. Copy the built `massfarmland-1.0.0.jar` into the client's `mods` folder.
-3. When playing on a **Forge dedicated server**, install the same JAR on the **server** as well (and on every participating client so that client-side handling remains consistent).
-4. Launch the game, hold a compatible seed or crop item, then hold Shift and right-click farmland.
+## Changed / added source files
 
-## In-Game Test Cases
+- `src/main/java/com/example/massfarmland/HoeingService.java` **NEW** — all soil selection, plant-clearing, tilling, and hoe-durability behavior.
+- `src/main/java/com/example/massfarmland/HoeingHandler.java` **NEW** — Shift + right-click hoe event and client/server coordination.
+- `src/main/java/com/example/massfarmland/PlantingService.java` **CHANGED** — planting boundary 16 x 16 -> 8 x 8, 256 -> 64 max successful placements.
+- `gradle.properties` **CHANGED** — version raised to 1.1.0 and mod description updated.
+- `README.md` **CHANGED** — both feature descriptions, build steps, compatibility notes, and test checklist.
+- `CHANGES.md` **NEW** — summary of modifications.
+- `PlantingHandler.java` **UNCHANGED** — the existing planting event handler continues to work independently.
 
-1. Create a 9×9 farmland plot on the same Y-level and hold 64 wheat seeds: exactly the 64 nearest valid blocks should be planted.
-2. Hold 3 wheat seeds and place another 61 in the inventory: the mod should plant up to 64 crops if enough valid blocks are available.
-3. Hold carrots while carrying wheat seeds in the inventory: only carrots should be used; the mod must not switch crop types.
-4. Connect farmland across a block that already has a crop: the mod should still find and plant on empty farmland beyond that block.
-5. Place farmland one block away diagonally, with dirt separating it: it should not be considered connected.
-6. Farmland on a different Y-level or more than 8 blocks from the clicked position should not be planted.
-7. Blocks that already contain crops, stone, or another obstruction above them should not be replaced.
-8. Test in Creative Mode, Survival Mode, multiplayer, and with a compatible crop mod.
-9. Test in an area protected by a block-placement protection mod; crops must not appear in locations where placement is denied.
-10. If Shift + right-click is used when there are no valid planting locations, the game should fall back to its normal single-crop placement behavior.
+## Validation status
 
-## Source Code Structure
-
-- `MassFarmlandMod.java`: Minimal `@Mod` entry-point class.
-- `PlantingHandler.java`: Handles `PlayerInteractEvent.RightClickBlock`, checks activation conditions, prevents the client's default placement action, and delegates planting to the server.
-- `PlantingService.java`: Performs the connected-area BFS, sorts farmland by distance, searches the inventory for matching item stacks, and calls `ItemStack.useOn` for up to 64 successful planting operations.
-
-The limits are defined by `PlantingService.RADIUS` and `PlantingService.MAX_PLANTS`. Change these values and rebuild the mod to adjust the search radius or maximum number of crops per activation.
-
-## Verification Status
-
-The types and methods used have been checked against the **Forge 1.20.1 API documentation**. The environment used to create the ZIP archive had no connection to Maven/Forge for downloading dependencies, so **the Gradle build and in-game tests could not be run in that environment**. No prebuilt JAR is included in the ZIP archive. Run `build.bat` on a machine with an Internet connection to verify the build. If the build fails, provide the build log for troubleshooting.
+Source files and ZIP layout were inspected, but **the Forge Gradle build and Minecraft gameplay tests have not been run** in the packaging environment because Forge/Gradle dependencies cannot be downloaded here. This ZIP contains Java sources and build scripts, not a ready-made mod JAR. Please build with JDK 17 and run the in-game tests above; share the build log if compilation fails.s
