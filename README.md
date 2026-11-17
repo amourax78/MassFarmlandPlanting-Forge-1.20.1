@@ -75,16 +75,6 @@ Install Minecraft Forge **1.20.1 / Forge 47.x**, then place the built JAR in you
 9. Test protected areas, custom crop mods, and Unbreaking: confirm normal protection and enchantment behavior.
 10. Confirm Shift + right-click with seeds affects planting only; Shift + right-click with a hoe affects tilling only.
 
-## Changed / added source files
-
-- `src/main/java/com/example/massfarmland/HoeingService.java` **NEW** — all soil selection, plant-clearing, tilling, and hoe-durability behavior.
-- `src/main/java/com/example/massfarmland/HoeingHandler.java` **NEW** — Shift + right-click hoe event and client/server coordination.
-- `src/main/java/com/example/massfarmland/PlantingService.java` **CHANGED** — planting boundary 16 x 16 -> 8 x 8, 256 -> 64 max successful placements.
-- `gradle.properties` **CHANGED** — version raised to 1.1.0 and mod description updated.
-- `README.md` **CHANGED** — both feature descriptions, build steps, compatibility notes, and test checklist.
-- `CHANGES.md` **NEW** — summary of modifications.
-- `PlantingHandler.java` **UNCHANGED** — the existing planting event handler continues to work independently.
-
 ## Validation status
 
 Source files and ZIP layout were inspected, but **the Forge Gradle build and Minecraft gameplay tests have not been run** in the packaging environment because Forge/Gradle dependencies cannot be downloaded here. This ZIP contains Java sources and build scripts, not a ready-made mod JAR. Please build with JDK 17 and run the in-game tests above; share the build log if compilation fails.s
